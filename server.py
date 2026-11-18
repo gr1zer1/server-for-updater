@@ -63,6 +63,7 @@ class Response:
 
 
 class Handler(BaseHTTPRequestHandler):
+
     def _get_origin(self) -> str:
         origin = self.headers.get("Origin", "")
         return origin if origin in ALLOWED_ORIGINS else ALLOWED_ORIGINS[0]
@@ -89,6 +90,8 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
 
     def do_GET(self):
+        global MINUTES
+
         # self.path включает query (?cmd=...), поэтому сравнивать надо только путь
         parsed = urlparse(self.path)
         path = parsed.path
@@ -157,7 +160,6 @@ class Handler(BaseHTTPRequestHandler):
                 "queue": len(COMMANDS),
             })
         elif path == "/firewall/set":
-            global MINUTES
 
             try:
                 duration = int(parse_qs(parsed.query).get("dur", [""])[0])
