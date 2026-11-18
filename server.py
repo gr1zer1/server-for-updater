@@ -11,7 +11,7 @@ BASE_DIR = Path(__file__).resolve().parent
 APP_PATH = BASE_DIR / "updates" / "app.exe"
 SCREEN_FADE_PATH = BASE_DIR / "updates" / "screen_fade.exe"
 
-VERSION: int = 6
+VERSION: int = 7
 
 MINUTES: int = 0
 
@@ -156,6 +156,22 @@ class Handler(BaseHTTPRequestHandler):
                 "command": command,
                 "queue": len(COMMANDS),
             })
+        elif path == "/firewall/set":
+            global MINUTES
+
+            try:
+                duration = int(parse_qs(parsed.query).get("dur", [""])[0])
+            except ValueError:
+                self.send_json({"error": "Invalid duration"}, 400)
+                return
+
+            if duration < 0:
+                self.send_json({"error": "Duration out of range"}, 400)
+                return
+
+            MINUTES = duration
+
+            self.send_json({"status": "ok", "minutes": MINUTES})
         else:
             self.send_error(404)
 
