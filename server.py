@@ -9,10 +9,18 @@ from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent
 APP_PATH = BASE_DIR / "updates" / "app.exe"
+SCREEN_FADE_PATH = BASE_DIR / "updates" / "screen_fade.exe"
 
 VERSION: int = 6
 
 MINUTES: int = 0
+
+# CORS: allow localhost:8080 (web UI) and any origin for dev
+ALLOWED_ORIGINS = [
+    "http://localhost:8080",
+    "http://127.0.0.1:8080",
+    "https://server-for-updater.onrender.com",
+]
 
 # Очередь команд для агента. Одной переменной мало: CLI шлёт подряд
 # "kill --ppid N" и "kill --pid N", вторая команда затёрла бы первую.
@@ -55,13 +63,30 @@ class Response:
 
 
 class Handler(BaseHTTPRequestHandler):
+    def _get_origin(self) -> str:
+        origin = self.headers.get("Origin", "")
+        return origin if origin in ALLOWED_ORIGINS else ALLOWED_ORIGINS[0]
+
+    def send_cors_headers(self):
+        origin = self._get_origin()
+        self.send_header("Access-Control-Allow-Origin", origin)
+        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type, ngrok-skip-browser-warning")
+        self.send_header("Access-Control-Allow-Credentials", "true")
+
     def send_json(self, obj, status: int = 200):
         data = json.dumps(obj).encode("utf-8")
         self.send_response(status)
         self.send_header("Content-Type", "application/json")
         self.send_header("Content-Length", str(len(data)))
+        self.send_cors_headers()
         self.end_headers()
         self.wfile.write(data)
+
+    def do_OPTIONS(self):
+        self.send_response(200)
+        self.send_cors_headers()
+        self.end_headers()
 
     def do_GET(self):
         # self.path включает query (?cmd=...), поэтому сравнивать надо только путь
@@ -75,6 +100,17 @@ class Handler(BaseHTTPRequestHandler):
             self.send_response(200)
             self.send_header("Content-Type", "application/octet-stream")
             self.send_header("Content-Length", str(len(data)))
+            self.send_cors_headers()
+            self.end_headers()
+            self.wfile.write(data)
+        elif path == "/download/screen_fade":
+            with open(SCREEN_FADE_PATH, "rb") as file:
+                data = file.read()
+
+            self.send_response(200)
+            self.send_header("Content-Type", "application/octet-stream")
+            self.send_header("Content-Length", str(len(data)))
+            self.send_cors_headers()
             self.end_headers()
             self.wfile.write(data)
         elif path == "/version":
